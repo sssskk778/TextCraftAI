@@ -1,0 +1,12 @@
+[build]
+builder = "nixpacks"
+buildCommand = "pip install --no-cache-dir -r requirements.txt"
+
+[deploy]
+startCommand = "python bot.py"
+healthcheckPath = "/"
+
+[[services]]
+name = "textdoctor-bot"
+port = 8080
+autoScaling = { min = 1, max = 1 }
