@@ -1,2 +1,5 @@
-MISTRAL_API_KEY=12tJHePKUXx0db7Jxa91ySDmLYP7XkzU
-TELEGRAM_BOT_TOKEN=7962385562:AAERMmqU6pv-opfppig6yEfLq_-oleNtHE8
+.env
+__pycache__/
+*.pyc
+venv/
+*.log
