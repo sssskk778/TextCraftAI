@@ -9,7 +9,7 @@ from telegram.ext import (
     filters, ContextTypes, ConversationHandler
 )
 from telegram.constants import ParseMode, ChatAction
-from mistralai import Mistral
+from mistralai.client import MistralClient
 from dotenv import load_dotenv
 
 PORT = int(os.getenv("PORT", 8080))  # 8080 по умолчанию
@@ -28,7 +28,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-client = Mistral(api_key=MISTRAL_API_KEY)
+client = MistralClient(api_key=MISTRAL_API_KEY)
 MODEL = "mistral-small-latest"
 
 SELECTING_ACTION, EDITING_TEXT = range(2)
@@ -355,3 +355,4 @@ def main():
 if __name__ == '__main__':
 
     main()
+
