@@ -12,6 +12,7 @@ from telegram.constants import ParseMode, ChatAction
 from mistralai import Mistral
 from dotenv import load_dotenv
 
+PORT = int(os.getenv("PORT", 8080))  # 8080 по умолчанию
 load_dotenv()
 
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
@@ -352,4 +353,5 @@ def main():
 
 
 if __name__ == '__main__':
+
     main()
