@@ -3,6 +3,10 @@ import logging
 from enum import Enum
 from dataclasses import dataclass
 import sys
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+import time
+import signal
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -15,7 +19,6 @@ from dotenv import load_dotenv
 
 # Railway автоматически устанавливает PORT
 PORT = int(os.getenv("PORT", 8080))
-WEBHOOK_URL = os.getenv("RAILWAY_STATIC_URL")
 
 load_dotenv()
 
@@ -353,7 +356,32 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.effective_message.reply_text("⚠️ Ошибка")
 
 
-def main():
+# Простой HTTP сервер для healthcheck
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/':
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'OK')
+        else:
+            self.send_response(404)
+            self.end_headers()
+    
+    def log_message(self, format, *args):
+        # Отключаем логирование HTTP-запросов
+        pass
+
+def run_http_server():
+    """Запуск простого HTTP-сервера для healthcheck"""
+    port = int(os.getenv("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    logger.info(f"🌐 HTTP сервер запущен на порту {port}")
+    server.serve_forever()
+
+
+def run_telegram_bot():
+    """Запуск Telegram бота"""
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     conv_handler = ConversationHandler(
@@ -379,10 +407,36 @@ def main():
     application.add_handler(conv_handler)
     application.add_error_handler(error_handler)
 
-    logger.info("🤖 Бот запущен...")
+    logger.info("🤖 Telegram бот запущен...")
     
-    # На Railway используем polling, так как нет статического URL для webhook
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # Обработка сигналов для корректного завершения
+    def signal_handler(signum, frame):
+        logger.info("Получен сигнал завершения, останавливаем бота...")
+        application.stop()
+        time.sleep(2)  # Даем время на корректное завершение
+        sys.exit(0)
+    
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    # На Railway используем polling
+    application.run_polling(
+        allowed_updates=Update.ALL_TYPES,
+        close_loop=False
+    )
+
+
+def main():
+    # Запускаем HTTP-сервер в отдельном потоке для healthcheck
+    http_thread = threading.Thread(target=run_http_server, daemon=True)
+    http_thread.start()
+    
+    # Даем время HTTP-серверу запуститься
+    logger.info("🚀 Запускаю HTTP-сервер для healthcheck...")
+    time.sleep(2)
+    
+    # Запускаем Telegram бота
+    run_telegram_bot()
 
 
 if __name__ == '__main__':
