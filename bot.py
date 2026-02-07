@@ -245,13 +245,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         result = response.choices[0].message.content
 
+        # Сохраняем оригинал для истории
+        original_text = user_data.current_text
+        
+        # Для CONTINUE сохраняем полный результат (исходный + продолжение)
+        # Для других действий сохраняем только результат
+        if action == EditAction.CONTINUE:
+            # AI должен был вернуть исходный текст + продолжение
+            # Но на всякий случай, если AI вернул только продолжение:
+            if original_text not in result:
+                result = original_text + " " + result
+            user_data.current_text = result
+        else:
+            user_data.current_text = result
+
         user_data.history.append({
             'action': action.value,
-            'original': user_data.current_text,
+            'original': original_text,
             'result': result
         })
-
-        user_data.current_text = result
 
         emoji_map = {
             EditAction.FIX: "✏️",
@@ -263,8 +275,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             EditAction.CONTINUE: "➡️",
         }
 
+        # Для CONTINUE показываем специальное сообщение
+        if action == EditAction.CONTINUE:
+            # Находим где заканчивается оригинальный текст
+            if original_text in result:
+                # Убираем оригинальный текст из начала результата
+                # и получаем только продолжение
+                continued_part = result.replace(original_text, "", 1).strip()
+                display_text = f"📝 *Оригинальный текст:*\n{original_text}\n\n➡️ *Продолжение:*\n{continued_part}"
+            else:
+                display_text = f"➡️ *Продолжение текста:*\n\n{result}"
+        else:
+            display_text = f"{emoji_map[action]} *{action.name.upper()}*\n\n{result}"
+
         await query.edit_message_text(
-            f"{emoji_map[action]} *{action.name.upper()}*\n\n{result}",
+            display_text,
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=get_after_edit_keyboard()
         )
