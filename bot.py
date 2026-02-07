@@ -2,6 +2,7 @@ import os
 import logging
 from enum import Enum
 from dataclasses import dataclass
+import sys
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -9,10 +10,13 @@ from telegram.ext import (
     filters, ContextTypes, ConversationHandler
 )
 from telegram.constants import ParseMode, ChatAction
-from mistralai.client import MistralClient
+from mistralai import Mistral
 from dotenv import load_dotenv
 
-PORT = int(os.getenv("PORT", 8080))  # 8080 по умолчанию
+# Railway автоматически устанавливает PORT
+PORT = int(os.getenv("PORT", 8080))
+WEBHOOK_URL = os.getenv("RAILWAY_STATIC_URL")
+
 load_dotenv()
 
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
@@ -20,15 +24,16 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 if not MISTRAL_API_KEY or not TELEGRAM_BOT_TOKEN:
     print("❌ Ошибка: Проверьте файл .env")
-    exit(1)
+    sys.exit(1)
 
+# Настройка логирования
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-client = MistralClient(api_key=MISTRAL_API_KEY)
+client = Mistral(api_key=MISTRAL_API_KEY)
 MODEL = "mistral-small-latest"
 
 SELECTING_ACTION, EDITING_TEXT = range(2)
@@ -163,6 +168,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     await update.message.reply_text(help_text, parse_mode=ParseMode.MARKDOWN)
 
+
 async def start_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_data = user_sessions.get(user_id)
@@ -296,12 +302,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode=ParseMode.MARKDOWN
                 )
 
-
             await context.bot.send_message(
                 chat_id=query.message.chat_id,
                 text="✏️ *TextCraft AI*\n\nОтправьте /edit чтобы начать",
                 parse_mode=ParseMode.MARKDOWN
             )
+            
             if user_id in user_sessions:
                 del user_sessions[user_id]
             return ConversationHandler.END
@@ -349,10 +355,10 @@ def main():
     application.add_error_handler(error_handler)
 
     logger.info("🤖 Бот запущен...")
+    
+    # На Railway используем polling, так как нет статического URL для webhook
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == '__main__':
-
     main()
-
